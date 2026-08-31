@@ -1,0 +1,1 @@
+(function(){'use strict';var parts=window.__BinaryWorldSourceParts||[];if(parts.length!==6)throw new Error('Binary World source modules did not load correctly: expected 6 parts, got '+parts.length);var source=parts.join('');delete window.__BinaryWorldSourceParts;Function(source)();})();
