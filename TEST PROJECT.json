@@ -1,0 +1,209 @@
+{
+  "meta": {
+    "grid": [
+      20,
+      20
+    ],
+    "name": "TEST PROJECT"
+  },
+  "layers": [
+    {
+      "name": "Layer 0",
+      "schematic": [
+        {
+          "0": {
+            "type": "input",
+            "x": 0,
+            "y": 0,
+            "layer": 0,
+            "rotation": 0,
+            "pressed": false,
+            "state": 0
+          },
+          "1": {
+            "type": "passer",
+            "x": 1,
+            "y": 0,
+            "layer": 0,
+            "rotation": 0,
+            "pressed": false,
+            "state": 0
+          },
+          "3": {
+            "type": "node",
+            "x": 3,
+            "y": 0,
+            "layer": 0,
+            "rotation": 0,
+            "pressed": false,
+            "state": 0
+          }
+        },
+        {},
+        {
+          "1": {
+            "type": "passer",
+            "x": 1,
+            "y": 2,
+            "layer": 0,
+            "rotation": 0,
+            "pressed": false,
+            "state": 0
+          },
+          "2": {
+            "type": "inverter",
+            "x": 2,
+            "y": 2,
+            "layer": 0,
+            "rotation": 0,
+            "pressed": false,
+            "state": 1
+          },
+          "3": {
+            "type": "node",
+            "x": 3,
+            "y": 2,
+            "layer": 0,
+            "rotation": 0,
+            "pressed": false,
+            "state": 1
+          }
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ]
+    },
+    {
+      "name": "Layer 2",
+      "schematic": [
+        {
+          "1": {
+            "type": "passer",
+            "x": 1,
+            "y": 0,
+            "layer": 1,
+            "rotation": 90,
+            "pressed": false,
+            "state": 0
+          },
+          "2": {
+            "type": "passer",
+            "x": 2,
+            "y": 0,
+            "layer": 1,
+            "rotation": 0,
+            "pressed": false,
+            "state": 0
+          },
+          "3": {
+            "type": "passer",
+            "x": 3,
+            "y": 0,
+            "layer": 1,
+            "rotation": 0,
+            "pressed": false,
+            "state": 0
+          }
+        },
+        {
+          "1": {
+            "type": "passer",
+            "x": 1,
+            "y": 1,
+            "layer": 1,
+            "rotation": 90,
+            "pressed": false,
+            "state": 0
+          }
+        },
+        {
+          "1": {
+            "type": "passer",
+            "x": 1,
+            "y": 2,
+            "layer": 1,
+            "rotation": 90,
+            "pressed": false,
+            "state": 0
+          }
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ]
+    },
+    {
+      "name": "Layer 2",
+      "schematic": [
+        {
+          "1": {
+            "type": "passer",
+            "x": 1,
+            "y": 0,
+            "layer": 2,
+            "rotation": 0,
+            "pressed": false,
+            "state": 0
+          },
+          "2": {
+            "type": "passer",
+            "x": 2,
+            "y": 0,
+            "layer": 2,
+            "rotation": 0,
+            "pressed": false,
+            "state": 0
+          }
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ]
+    }
+  ]
+}

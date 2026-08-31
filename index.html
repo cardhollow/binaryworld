@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+    <title>Binary World</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="startup">
+        <div id="startupBox">
+            <div id="startupTitle">BUILDING WORLD</div>
+            <div id="startupSubtitle">Binary World</div>
+            <div class="startupActions">
+                <button id="createNewButton" class="startupButton">CREATE NEW</button>
+                <button id="loadButton" class="startupButton">LOAD</button>
+            </div>
+        </div>
+    </div>
+    <div id="app">
+        <div id="header">
+            <div id="headerTitle">Project 1</div>
+            <div id="headerRight">
+                <div id="status">MODE: SELECTOR | SIMULATION: ACTIVE</div>
+                <button onclick="openGuide()" class="headerButton">Help</button>
+                <button id="backButton" class="headerButton">BACK</button>
+                <button id="undoButton" class="headerButton">UNDO</button>
+                <button id="redoButton" class="headerButton">REDO</button>
+                <button id="exportButton" class="headerButton">EXPORT</button>
+                <button id="importButton" class="headerButton">IMPORT</button>
+            </div>
+        </div>
+        <div id="tools"></div>
+        <div id="body">
+            <aside id="layers">
+                <div id="layersTitle">
+                    <div>LAYERS</div>
+                    <div class="layerActions">
+                        <button id="addLayer" class="layerAction">ADD</button>
+                        <button id="deleteLayer" class="layerAction">DEL</button>
+                    </div>
+                </div>
+                <div id="layerList"></div>
+            </aside>
+            <main id="viewport">
+                <div id="world">
+                    <div id="grid"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <div id="createNewModal" class="modal">
+        <div class="modalBox">
+            <div class="modalTitle">CREATE NEW</div>
+            <div class="modalSubtitle">Create a new Binary World project. Grid size cannot be less than 5 by 5.</div>
+            <label class="modalField"><span>NAME</span><input id="createNameInput" type="text" autocomplete="off" placeholder="Project name"></label>
+            <div class="modalGridInputs"><label class="modalField"><span>GRID X</span><input id="createGridXInput" type="number" min="5" step="1" inputmode="numeric"></label><label class="modalField"><span>GRID Y</span><input id="createGridYInput" type="number" min="5" step="1" inputmode="numeric"></label></div>
+            <div class="modalActions"><button id="createNewCancel" class="modalButton">CANCEL</button><button id="createNewConfirm" class="modalButton dark">CREATE</button></div>
+        </div>
+    </div>
+    <div id="confirmModal" class="modal">
+        <div class="modalBox">
+            <div id="confirmTitle" class="modalTitle"></div>
+            <div id="confirmSubtitle" class="modalSubtitle"></div>
+            <div class="modalActions">
+                <button id="confirmCancel" class="modalButton">CANCEL</button>
+                <button id="confirmAccept" class="modalButton dark">CONFIRM</button>
+            </div>
+        </div>
+    </div>
+    <div id="exportModal" class="modal">
+        <div class="modalBox">
+            <div class="modalTitle">EXPORT</div>
+            <div class="modalSubtitle">Choose how to save the current Binary World.</div>
+            <div class="modalOptions">
+                <button id="exportBW" class="modalOption">
+                    <strong>Export as BW</strong>
+                    <span>Binary World compressed binary format.</span>
+                </button>
+                <button id="exportJSON" class="modalOption">
+                    <strong>Export as JSON</strong>
+                    <span>Readable world data for debugging and editing.</span>
+                </button>
+            </div>
+            <div class="modalActions">
+                <button id="exportClose" class="modalButton">CLOSE</button>
+            </div>
+        </div>
+    </div>
+    <div id="importModal" class="modal">
+        <div class="modalBox">
+            <div class="modalTitle">IMPORT</div>
+            <div class="modalSubtitle">Choose the file type to restore into the current project.</div>
+            <div class="modalOptions">
+                <button id="importBW" class="modalOption">
+                    <strong>Import BW</strong>
+                    <span>Open a .bw Binary World file.</span>
+                </button>
+                <button id="importJSON" class="modalOption">
+                    <strong>Import JSON</strong>
+                    <span>Open a JSON world export.</span>
+                </button>
+            </div>
+            <div class="modalActions">
+                <button id="importClose" class="modalButton">CLOSE</button>
+            </div>
+        </div>
+    </div>
+    <div id="loadChoiceModal" class="modal">
+        <div class="modalBox">
+            <div class="modalTitle">LOAD</div>
+            <div class="modalSubtitle">Choose where to load the world from.</div>
+            <div class="modalOptions">
+                <button id="loadImportButton" class="modalOption">
+                    <strong>Import</strong>
+                    <span>Use the BW / JSON import modal.</span>
+                </button>
+                <button id="loadLocalButton" class="modalOption">
+                    <strong>Load from local</strong>
+                    <span>Open projects saved in this browser.</span>
+                </button>
+            </div>
+            <div class="modalActions">
+                <button id="loadChoiceClose" class="modalButton">CLOSE</button>
+            </div>
+        </div>
+    </div>
+    <div id="localProjectsModal" class="modal">
+        <div class="modalBox">
+            <div class="modalTitle">LOCAL PROJECTS</div>
+            <div class="modalSubtitle">Projects are stored in browser local storage.</div>
+            <div id="localProjectList" class="localList"></div>
+            <div class="modalActions">
+                <button id="localProjectsAdd" class="modalButton dark">ADD</button>
+                <button id="localProjectsClose" class="modalButton">CLOSE</button>
+            </div>
+        </div>
+    </div>
+    <div id="guide">
+        <div id="guideHeader">
+            <div id="guideHeaderTitle">BUILDING WORLD GUIDE</div>
+            <button id="guideBack" class="headerButton">BACK</button>
+        </div>
+        <div id="guideBody">
+            <aside id="guideSections"></aside>
+            <main id="guideContent"></main>
+        </div>
+    </div>
+	<script defer src="js/binary-world-blocks.js"></script>
+	<script defer src="js/binary-world-core.js"></script>
+	<script defer src="js/binary-world-simulation.js"></script>
+	<script defer src="js/binary-world-storage.js"></script>
+	<script defer src="js/binary-world-bw.js"></script>
+	<script defer src="js/binary-world-guide.js"></script>
+	<script defer src="js/binary-world.js"></script>
+	<script defer src="js/binary-world-load.js"></script>
+</body>
+</html>
