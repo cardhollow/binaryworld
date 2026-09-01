@@ -7,7 +7,8 @@ var BW_EDITOR={
     selection:new Set(),
     anchor:null,
     primary:null,
-    busy:false
+    busy:false,
+    clipboardBytes:null
 };
 
 function isEditingTarget(target){
@@ -18,36 +19,17 @@ function isEditingTarget(target){
     return tag==="input"||tag==="textarea"||tag==="select";
 }
 
-function isModalVisible(){
-    var modals=document.querySelectorAll(".modal.visible");
-    return !!modals.length;
-}
-
-function selKey(layer,x,y){
-    return String(layer)+":"+String(x)+":"+String(y);
-}
-
-function parseSelKey(k){
-    var p=String(k).split(":");
-    return {layer:Number(p[0]),x:Number(p[1]),y:Number(p[2])};
-}
-
-function validCell(x,y,layer){
-    return Number.isInteger(x)&&Number.isInteger(y)&&Number.isInteger(layer)&&
-        layer>=0&&layer<world.layers.length&&
-        x>=0&&y>=0&&x<Number(world.meta.grid[0])&&y<Number(world.meta.grid[1]);
-}
-
-function getCellElement(x,y){
-    return gridElement.querySelector(".cell[data-x='"+x+"'][data-y='"+y+"']");
-}
+function isModalVisible(){return !!document.querySelectorAll(".modal.visible").length}
+function selKey(layer,x,y){return String(layer)+":"+String(x)+":"+String(y)}
+function parseSelKey(k){var p=String(k).split(":");return{layer:Number(p[0]),x:Number(p[1]),y:Number(p[2])}}
+function validCell(x,y,layer){return Number.isInteger(x)&&Number.isInteger(y)&&Number.isInteger(layer)&&layer>=0&&layer<world.layers.length&&x>=0&&y>=0&&x<Number(world.meta.grid[0])&&y<Number(world.meta.grid[1])}
+function getCellElement(x,y){return gridElement.querySelector(".cell[data-x='"+x+"'][data-y='"+y+"']")}
 
 function paintSelection(){
     var cells=gridElement.querySelectorAll(".cell");
     for(var i=0;i<cells.length;i++){
-        var cell=cells[i];
-        var x=Number(cell.dataset.x),y=Number(cell.dataset.y);
-        cell.classList.toggle("bw-multi-selected",BW_EDITOR.selection.has(selKey(activeLayer,x,y)));
+        var cell=cells[i],x=Number(cell.dataset.x),y=Number(cell.dataset.y),k=selKey(activeLayer,x,y);
+        cell.classList.toggle("bw-multi-selected",BW_EDITOR.selection.has(k));
         cell.classList.toggle("bw-multi-primary",!!BW_EDITOR.primary&&BW_EDITOR.primary.layer===activeLayer&&BW_EDITOR.primary.x===x&&BW_EDITOR.primary.y===y);
     }
     document.documentElement.style.setProperty("--bw-editor-selection-count",String(BW_EDITOR.selection.size));
@@ -75,10 +57,7 @@ function clearSelection(){
     paintSelection();
 }
 
-function addCell(x,y,layer){
-    if(!validCell(x,y,layer))return;
-    var k=selKey(layer,x,y);
-    BW_EDITOR.selection.add(k);
+function setPrimary(layer,x,y){
     BW_EDITOR.primary={layer:layer,x:x,y:y};
     if(typeof selected!=="undefined"){
         selected.x=x;
@@ -86,31 +65,53 @@ function addCell(x,y,layer){
     }
 }
 
-function toggleCell(x,y,layer){
-    if(!validCell(x,y,layer))return;
-    var k=selKey(layer,x,y);
-    if(BW_EDITOR.selection.has(k)){
-        BW_EDITOR.selection.delete(k);
-        if(BW_EDITOR.primary&&BW_EDITOR.primary.layer===layer&&BW_EDITOR.primary.x===x&&BW_EDITOR.primary.y===y)BW_EDITOR.primary=null;
-    }else{
-        BW_EDITOR.selection.add(k);
-        BW_EDITOR.primary={layer:layer,x:x,y:y};
-    }
+function addCell(x,y,layer){
+    if(!validCell(x,y,layer))return false;
+    BW_EDITOR.selection.add(selKey(layer,x,y));
+    setPrimary(layer,x,y);
+    return true;
+}
+
+function removeCell(x,y,layer){
+    BW_EDITOR.selection.delete(selKey(layer,x,y));
+    if(BW_EDITOR.primary&&BW_EDITOR.primary.layer===layer&&BW_EDITOR.primary.x===x&&BW_EDITOR.primary.y===y)BW_EDITOR.primary=null;
     syncPrimary();
 }
 
-function addRange(a,b,layer){
-    if(!a||!validCell(b.x,b.y,layer))return;
-    var x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x);
-    var y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y);
-    for(var y=y0;y<=y1;y++)for(var x=x0;x<=x1;x++)addCell(x,y,layer);
+function toggleCell(x,y,layer){
+    if(!validCell(x,y,layer))return;
+    var k=selKey(layer,x,y);
+    if(BW_EDITOR.selection.has(k))removeCell(x,y,layer);
+    else addCell(x,y,layer);
+}
+
+function addRange(a,b,layer,additive){
+    if(!a||!validCell(a.x,a.y,layer)||!validCell(b.x,b.y,layer))return;
+    if(!additive)BW_EDITOR.selection.clear();
+    var x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y);
+    for(var y=y0;y<=y1;y++)for(var x=x0;x<=x1;x++)BW_EDITOR.selection.add(selKey(layer,x,y));
+    setPrimary(layer,b.x,b.y);
+}
+
+function selectAllCurrentLayer(){
+    BW_EDITOR.selection.clear();
+    for(var y=0;y<world.meta.grid[1];y++)for(var x=0;x<world.meta.grid[0];x++)if(getBlock(x,y,activeLayer))BW_EDITOR.selection.add(selKey(activeLayer,x,y));
+    var first=BW_EDITOR.selection.values().next();
+    BW_EDITOR.primary=first.done?null:parseSelKey(first.value);
+    BW_EDITOR.anchor=BW_EDITOR.primary?{layer:BW_EDITOR.primary.layer,x:BW_EDITOR.primary.x,y:BW_EDITOR.primary.y}:null;
+    syncPrimary();
+    if(typeof renderAll==="function")renderAll();
+    paintSelection();
+    setStatus();
 }
 
 function setStatus(){
     if(typeof statusElement==="undefined")return;
-    if(!BW_EDITOR.selection.size)return;
-    var primary=BW_EDITOR.primary;
-    var block=primary&&primary.layer===activeLayer?getBlock(primary.x,primary.y):null;
+    if(!BW_EDITOR.selection.size){
+        statusElement.textContent="MODE: SELECTOR | SIMULATION: ACTIVE";
+        return;
+    }
+    var primary=BW_EDITOR.primary,block=primary&&primary.layer===activeLayer?getBlock(primary.x,primary.y,primary.layer):null;
     var label=BW_EDITOR.selection.size===1&&block?block.type.toUpperCase()+" ["+primary.x+","+primary.y+"]":"MULTI-SELECTION: "+BW_EDITOR.selection.size+" CELLS";
     statusElement.textContent="SELECTED: "+label+" | SIMULATION: ACTIVE";
 }
@@ -118,37 +119,29 @@ function setStatus(){
 function handleSelectionClick(e){
     if(editingMode!=="selector")return;
     var cell=e.target.closest&&e.target.closest(".cell");
-    if(!cell||!gridElement.contains(cell))return;
-    if(e.button!==0)return;
+    if(!cell||!gridElement.contains(cell)||e.button!==0)return;
+
     var x=Number(cell.dataset.x),y=Number(cell.dataset.y),layer=activeLayer;
     if(!validCell(x,y,layer))return;
 
-    var multi=e.shiftKey||e.ctrlKey||e.metaKey;
-    if(!multi){
-        BW_EDITOR.selection.clear();
-        addCell(x,y,layer);
-        BW_EDITOR.anchor={layer:layer,x:x,y:y};
-        if(typeof renderAll==="function")renderAll();
-        paintSelection();
-        setStatus();
-        return;
-    }
+    var additive=e.ctrlKey||e.metaKey,range=e.shiftKey;
 
     e.preventDefault();
     e.stopPropagation();
-    if(e.shiftKey){
-        var anchor=BW_EDITOR.anchor||BW_EDITOR.primary;
-        if(e.ctrlKey||e.metaKey){
-            addRange(anchor,{x:x,y:y},layer);
-        }else{
-            BW_EDITOR.selection.clear();
-            addRange(anchor,{x:x,y:y},layer);
-        }
-        BW_EDITOR.primary={layer:layer,x:x,y:y};
-    }else{
+
+    if(range){
+        var anchor=BW_EDITOR.anchor||BW_EDITOR.primary||{layer:layer,x:x,y:y};
+        if(anchor.layer!==layer)anchor={layer:layer,x:x,y:y};
+        addRange(anchor,{x:x,y:y},layer,additive);
+    }else if(additive){
         toggleCell(x,y,layer);
         BW_EDITOR.anchor={layer:layer,x:x,y:y};
+    }else{
+        BW_EDITOR.selection.clear();
+        addCell(x,y,layer);
+        BW_EDITOR.anchor={layer:layer,x:x,y:y};
     }
+
     if(typeof renderAll==="function")renderAll();
     paintSelection();
     setStatus();
@@ -156,284 +149,522 @@ function handleSelectionClick(e){
 
 function recordsFromSelection(){
     var keys=Array.from(BW_EDITOR.selection);
-    if(!keys.length)return [];
-    var points=keys.map(parseSelKey);
+    if(!keys.length)return null;
+
+    var points=keys.map(parseSelKey),blocksSelected=[];
     var minX=Infinity,minY=Infinity,minL=Infinity,maxX=-Infinity,maxY=-Infinity,maxL=-Infinity;
-    var records=[];
+
     for(var i=0;i<points.length;i++){
-        var p=points[i],b=getBlock(p.x,p.y,p.layer);
-        if(!b)continue;
-        minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);minL=Math.min(minL,p.layer);
-        maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);maxL=Math.max(maxL,p.layer);
-    }
-    if(!records.length&&minX===Infinity)return [];
-    for(var j=0;j<points.length;j++){
-        var q=points[j],block=getBlock(q.x,q.y,q.layer);
+        var p=points[i],block=getBlock(p.x,p.y,p.layer);
         if(!block)continue;
-        var type=String(block.type);
-        records.push({
-            type:type,
-            x:q.x-minX,
-            y:q.layer-minL,
-            z:q.y-minY,
-            rotation:((((Number(block.rotation)||0)%360)+360)%360)/90|0,
-            state:block.state?1:0
-        });
+
+        blocksSelected.push({point:p,block:block});
+        minX=Math.min(minX,p.x);
+        minY=Math.min(minY,p.y);
+        minL=Math.min(minL,p.layer);
+        maxX=Math.max(maxX,p.x);
+        maxY=Math.max(maxY,p.y);
+        maxL=Math.max(maxL,p.layer);
     }
-    return {
+
+    if(!blocksSelected.length)return null;
+
+    var records=blocksSelected.map(function(item){
+        var p=item.point,b=item.block;
+        return{
+            type:String(b.type),
+            x:p.x-minX,
+            y:p.layer-minL,
+            z:p.y-minY,
+            rotation:((((Number(b.rotation)||0)%360)+360)%360)/90|0,
+            state:b.state?1:0
+        };
+    });
+
+    return{
         records:records,
-        width:(maxX-minX)+1,
-        depth:(maxY-minY)+1,
-        layers:(maxL-minL)+1
+        width:maxX-minX+1,
+        depth:maxY-minY+1,
+        layers:maxL-minL+1
     };
 }
 
 function buildClipBytes(){
     if(typeof BW==="undefined")throw new Error("BW binary engine is not loaded.");
+
     var part=recordsFromSelection();
     if(!part||!part.records.length)throw new Error("Select at least one block before copying.");
+
     var dictionary=[],ids=new Map(),all=BW.getBlockTypes();
+
     for(var i=0;i<part.records.length;i++){
         var type=part.records[i].type.toLowerCase(),entry=null;
-        for(var j=0;j<all.length;j++)if(String(all[j].type).toLowerCase()===type){entry=all[j];break}
+
+        for(var j=0;j<all.length;j++){
+            if(String(all[j].type).toLowerCase()===type){
+                entry=all[j];
+                break;
+            }
+        }
+
         if(!entry)throw new Error("Unknown block type: "+part.records[i].type);
-        if(!ids.has(type)){ids.set(type,entry.id);dictionary.push(entry)}
+
+        if(!ids.has(type)){
+            ids.set(type,entry.id);
+            dictionary.push(entry);
+        }
     }
+
     var records=part.records.map(function(r){
-        return {id:ids.get(r.type.toLowerCase()),type:r.type,x:r.x,y:r.y,z:r.z,rotation:r.rotation,state:r.state};
+        return{
+            id:ids.get(r.type.toLowerCase()),
+            type:r.type,
+            x:r.x,
+            y:r.y,
+            z:r.z,
+            rotation:r.rotation,
+            state:r.state
+        };
     });
-    var program=BW.optimizePlacements(records);
-    var states=records.filter(function(r){return r.state===1}).map(function(r){return{position:[r.x,r.y,r.z],state:1}});
+
     var data={
         format:"BW",
         version:BW.VERSION,
-        meta:{name:"Clipboard",grid:[part.width,part.depth],layers:part.layers},
-        layerNames:Array.from({length:part.layers},function(_,i){return"Layer "+i}),
+        meta:{
+            name:"Clipboard",
+            grid:[part.width,part.depth],
+            layers:part.layers
+        },
+        layerNames:Array.from({length:part.layers},function(_,i){
+            return"Layer "+i;
+        }),
         dictionary:dictionary,
-        program:program,
-        states:states
+        program:BW.optimizePlacements(records),
+        states:records.filter(function(r){
+            return r.state===1;
+        }).map(function(r){
+            return{
+                position:[r.x,r.y,r.z],
+                state:1
+            };
+        })
     };
+
     return BW.writeFile(data);
 }
 
 function bytesToBase64(bytes){
     var chunk=0x8000,out="";
+
     for(var i=0;i<bytes.length;i+=chunk){
         var end=Math.min(bytes.length,i+chunk),s="";
+
         for(var j=i;j<end;j++)s+=String.fromCharCode(bytes[j]);
+
         out+=btoa(s);
     }
+
     return out;
 }
 
 function base64ToBytes(text){
-    var raw=atob(text),bytes=new Uint8Array(raw.length);
+    var raw=atob(String(text||"")),bytes=new Uint8Array(raw.length);
+
     for(var i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+
     return bytes;
 }
 
 async function writeClipboard(bytes){
+    BW_EDITOR.clipboardBytes=new Uint8Array(bytes);
+
     var base64=bytesToBase64(bytes);
     var fallback=BW_EDITOR.textPrefix+base64;
-    if(navigator.clipboard&&window.ClipboardItem&&window.isSecureContext){
+
+    if(navigator.clipboard&&navigator.clipboard.write&&window.ClipboardItem&&window.isSecureContext){
         try{
             var item=new ClipboardItem({
                 [BW_EDITOR.mime]:new Blob([bytes],{type:BW_EDITOR.mime}),
-                "application/octet-stream":new Blob([bytes],{type:"application/octet-stream"}),
                 "text/plain":new Blob([fallback],{type:"text/plain"})
             });
+
             await navigator.clipboard.write([item]);
             return;
         }catch(err){}
     }
+
     if(navigator.clipboard&&navigator.clipboard.writeText){
-        await navigator.clipboard.writeText(fallback);
-        return;
+        try{
+            await navigator.clipboard.writeText(fallback);
+            return;
+        }catch(err){}
     }
-    throw new Error("Clipboard access is unavailable. Use HTTPS or localhost.");
 }
 
 async function readClipboardBytes(){
+    if(BW_EDITOR.clipboardBytes)return new Uint8Array(BW_EDITOR.clipboardBytes);
+
     if(navigator.clipboard&&navigator.clipboard.read&&window.ClipboardItem&&window.isSecureContext){
         try{
             var items=await navigator.clipboard.read();
+
             for(var i=0;i<items.length;i++){
                 if(items[i].types.indexOf(BW_EDITOR.mime)>=0){
                     var blob=await items[i].getType(BW_EDITOR.mime);
                     return new Uint8Array(await blob.arrayBuffer());
                 }
-                if(items[i].types.indexOf("application/octet-stream")>=0){
-                    var raw=await items[i].getType("application/octet-stream");
-                    return new Uint8Array(await raw.arrayBuffer());
-                }
+
                 if(items[i].types.indexOf("text/plain")>=0){
-                    var text=await (await items[i].getType("text/plain")).text();
-                    if(text.indexOf(BW_EDITOR.textPrefix)===0)return base64ToBytes(text.slice(BW_EDITOR.textPrefix.length));
+                    var text=await(await items[i].getType("text/plain")).text();
+
+                    if(text.indexOf(BW_EDITOR.textPrefix)===0){
+                        return base64ToBytes(text.slice(BW_EDITOR.textPrefix.length));
+                    }
                 }
             }
         }catch(err){}
     }
+
     if(navigator.clipboard&&navigator.clipboard.readText){
-        var text=await navigator.clipboard.readText();
-        if(text.indexOf(BW_EDITOR.textPrefix)===0)return base64ToBytes(text.slice(BW_EDITOR.textPrefix.length));
+        try{
+            var plain=await navigator.clipboard.readText();
+
+            if(plain.indexOf(BW_EDITOR.textPrefix)===0){
+                return base64ToBytes(plain.slice(BW_EDITOR.textPrefix.length));
+            }
+        }catch(err){}
     }
+
     throw new Error("No Binary World clipboard data was found.");
 }
 
-function targetForPaste(data){
+function getPasteTarget(){
     var p=BW_EDITOR.primary;
     var x=p&&p.layer===activeLayer?p.x:0;
     var y=p&&p.layer===activeLayer?p.y:0;
-    return {x:x,y:y,layer:activeLayer};
+
+    return{
+        x:x,
+        y:y,
+        layer:activeLayer
+    };
 }
 
 function pasteBytes(bytes){
     if(typeof BW==="undefined")throw new Error("BW binary engine is not loaded.");
-    var data=BW.readFile(bytes),blocksToPaste=BW.expandProgram(data),target=targetForPaste(data);
+
+    var data=BW.readFile(bytes);
+    var blocksToPaste=BW.expandProgram(data);
+    var target=getPasteTarget();
+
     if(!blocksToPaste.length)return 0;
-    var before=deepSnapshot();
-    var pasted=[];
-    var offsetLayers=0;
-    if(BW_EDITOR.primary)offsetLayers=target.layer;
+
+    var before=deepSnapshot(),pasted=[];
+
     for(var i=0;i<blocksToPaste.length;i++){
-        var r=blocksToPaste[i],x=target.x+r.x,y=target.y+r.z,layer=offsetLayers+r.y;
-        if(!validCell(x,y,layer))continue;
-        var current=getBlock(x,y,layer);
-        if(current)continue;
+        var r=blocksToPaste[i];
+        var x=target.x+r.x;
+        var y=target.y+r.z;
+        var layer=target.layer+r.y;
+
+        if(!validCell(x,y,layer)||getBlock(x,y,layer))continue;
+
         var def=blocks[r.type];
         if(!def)continue;
+
         var block={
-            type:r.type,x:x,y:y,layer:layer,rotation:r.rotation||0,
-            pressed:false,state:0,runtime:createRuntime()
+            type:r.type,
+            x:x,
+            y:y,
+            layer:layer,
+            rotation:r.rotation||0,
+            pressed:false,
+            state:0,
+            runtime:createRuntime()
         };
+
         setBlock(x,y,block,layer);
-        pasted.push({x:x,y:y,layer:layer});
-        if(data.states){
-            for(var s=0;s<data.states.length;s++){
-                var st=data.states[s];
-                if(st.position[0]===r.x&&st.position[1]===r.y&&st.position[2]===r.z)block.state=st.state?1:0;
+
+        pasted.push({
+            x:x,
+            y:y,
+            layer:layer,
+            source:r
+        });
+
+        for(var s=0;s<(data.states||[]).length;s++){
+            var st=data.states[s];
+
+            if(st.position[0]===r.x&&st.position[1]===r.y&&st.position[2]===r.z){
+                block.state=st.state?1:0;
             }
         }
     }
+
     if(!pasted.length)return 0;
+
     finishWorldChange(before);
+
     BW_EDITOR.selection.clear();
-    for(var j=0;j<pasted.length;j++)BW_EDITOR.selection.add(selKey(pasted[j].layer,pasted[j].x,pasted[j].y));
+
+    for(var j=0;j<pasted.length;j++){
+        BW_EDITOR.selection.add(selKey(
+            pasted[j].layer,
+            pasted[j].x,
+            pasted[j].y
+        ));
+    }
+
     var last=pasted[pasted.length-1];
-    BW_EDITOR.primary={layer:last.layer,x:last.x,y:last.y};
-    BW_EDITOR.anchor=BW_EDITOR.primary;
-    selected.x=last.x;selected.y=last.y;
+
+    BW_EDITOR.primary={
+        layer:last.layer,
+        x:last.x,
+        y:last.y
+    };
+
+    BW_EDITOR.anchor={
+        layer:last.layer,
+        x:last.x,
+        y:last.y
+    };
+
+    selected.x=last.x;
+    selected.y=last.y;
+
     paintSelection();
     setStatus();
+
     return pasted.length;
 }
 
 function deleteSelection(){
     var keys=Array.from(BW_EDITOR.selection);
+
     if(!keys.length)return;
+
     var before=deepSnapshot(),changed=false;
+
     for(var i=0;i<keys.length;i++){
         var p=parseSelKey(keys[i]),b=getBlock(p.x,p.y,p.layer);
+
         if(!b)continue;
+
+        if(b.runtime&&b.runtime.pendingDelay&&b.runtime.pendingDelay.timer){
+            clearTimeout(b.runtime.pendingDelay.timer);
+        }
+
         setBlock(p.x,p.y,null,p.layer);
         changed=true;
     }
+
     if(!changed)return;
+
     finishWorldChange(before);
     clearSelection();
 }
 
 function rotateSelection(){
     var keys=Array.from(BW_EDITOR.selection);
-    if(!keys.length)return;
-    var before=deepSnapshot(),changed=false;
+    var before=deepSnapshot();
+    var changed=false;
+
     for(var i=0;i<keys.length;i++){
         var p=parseSelKey(keys[i]),b=getBlock(p.x,p.y,p.layer);
+
         if(!b)continue;
+
         b.rotation=((Number(b.rotation)||0)+90)%360;
         changed=true;
     }
+
     if(changed)finishWorldChange(before);
+
     paintSelection();
     setStatus();
 }
 
 async function copySelection(cut){
-    if(!BW_EDITOR.selection.size)return;
+    if(!BW_EDITOR.selection.size)throw new Error("Nothing selected.");
+
     var bytes=buildClipBytes();
+
     await writeClipboard(bytes);
+
     if(cut)deleteSelection();
     else setStatus();
 }
 
 async function pasteSelection(){
     var bytes=await readClipboardBytes();
-    pasteBytes(bytes);
+    return pasteBytes(bytes);
+}
+
+function handleNativeCopy(e){
+    if(
+        editingMode!=="selector"||
+        !BW_EDITOR.selection.size||
+        isEditingTarget(document.activeElement)||
+        isModalVisible()
+    )return;
+
+    try{
+        var bytes=buildClipBytes();
+        var fallback=BW_EDITOR.textPrefix+bytesToBase64(bytes);
+        var encoded=bytesToBase64(bytes);
+
+        BW_EDITOR.clipboardBytes=new Uint8Array(bytes);
+
+        try{
+            e.clipboardData.setData(BW_EDITOR.mime,encoded);
+        }catch(err){}
+
+        e.clipboardData.setData("text/plain",fallback);
+        e.preventDefault();
+        setStatus();
+    }catch(err){
+        console.error(err);
+    }
+}
+
+function handleNativePaste(e){
+    if(
+        editingMode!=="selector"||
+        isEditingTarget(document.activeElement)||
+        isModalVisible()
+    )return;
+
+    var encoded="";
+
+    try{
+        encoded=e.clipboardData.getData(BW_EDITOR.mime)||"";
+    }catch(err){}
+
+    if(!encoded){
+        try{
+            encoded=e.clipboardData.getData("text/plain")||"";
+        }catch(err){}
+    }
+
+    if(encoded.indexOf(BW_EDITOR.textPrefix)===0){
+        encoded=encoded.slice(BW_EDITOR.textPrefix.length);
+    }
+
+    if(!encoded)return;
+
+    try{
+        var bytes=base64ToBytes(encoded);
+
+        e.preventDefault();
+
+        BW_EDITOR.busy=true;
+        pasteBytes(bytes);
+        BW_EDITOR.clipboardBytes=new Uint8Array(bytes);
+    }catch(err){
+        console.error(err);
+    }finally{
+        BW_EDITOR.busy=false;
+    }
 }
 
 function keyHandler(e){
     if(BW_EDITOR.busy)return;
-    if(isEditingTarget(document.activeElement))return;
-    if(isModalVisible())return;
+    if(isEditingTarget(document.activeElement)||isModalVisible())return;
+
     var mod=e.ctrlKey||e.metaKey;
-    if(mod&&e.key.toLowerCase()==="c"&&BW_EDITOR.selection.size){
-        e.preventDefault();e.stopImmediatePropagation();
-        BW_EDITOR.busy=true;
-        copySelection(false).catch(function(err){console.error(err);}).finally(function(){BW_EDITOR.busy=false;});
+    var key=String(e.key||"").toLowerCase();
+
+    if(mod&&key==="a"){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        selectAllCurrentLayer();
         return;
     }
-    if(mod&&e.key.toLowerCase()==="x"&&BW_EDITOR.selection.size){
-        e.preventDefault();e.stopImmediatePropagation();
+
+    if(mod&&key==="x"&&BW_EDITOR.selection.size){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
         BW_EDITOR.busy=true;
-        copySelection(true).catch(function(err){console.error(err);}).finally(function(){BW_EDITOR.busy=false;});
+
+        copySelection(true)
+            .catch(function(err){
+                console.error(err);
+            })
+            .finally(function(){
+                BW_EDITOR.busy=false;
+            });
+
         return;
     }
-    if(mod&&e.key.toLowerCase()==="v"){
-        e.preventDefault();e.stopImmediatePropagation();
-        BW_EDITOR.busy=true;
-        pasteSelection().catch(function(err){console.error(err);}).finally(function(){BW_EDITOR.busy=false;});
-        return;
-    }
+
     if((e.key==="Delete"||e.key==="Backspace")&&BW_EDITOR.selection.size){
-        e.preventDefault();e.stopImmediatePropagation();
+        e.preventDefault();
+        e.stopImmediatePropagation();
         deleteSelection();
         return;
     }
-    if(String(e.key).toLowerCase()==="r"&&BW_EDITOR.selection.size){
-        e.preventDefault();e.stopImmediatePropagation();
+
+    if(key==="r"&&BW_EDITOR.selection.size){
+        e.preventDefault();
+        e.stopImmediatePropagation();
         rotateSelection();
     }
 }
 
 function install(){
-    document.documentElement.insertAdjacentHTML("beforeend","<style id=\"binary-world-editor-style\">.cell.bw-multi-selected{outline:2px solid currentColor;outline-offset:-2px;filter:brightness(1.08)}.cell.bw-multi-primary{box-shadow:inset 0 0 0 2px currentColor}.bw-selection-badge{position:fixed;right:12px;bottom:12px;z-index:9999;font:600 12px/1.2 sans-serif;padding:7px 9px;border-radius:8px;background:rgba(0,0,0,.78);color:#fff;pointer-events:none;display:none}.bw-selection-badge.visible{display:block}</style>");
-    document.body.insertAdjacentHTML("beforeend","<div id=\"bwSelectionBadge\" class=\"bw-selection-badge\"></div>");
+    document.documentElement.insertAdjacentHTML(
+        "beforeend",
+        "<style id=\"binary-world-editor-style\">.cell.bw-multi-selected{outline:2px solid currentColor;outline-offset:-2px;filter:brightness(1.08)}.cell.bw-multi-primary{box-shadow:inset 0 0 0 2px currentColor}.bw-selection-badge{position:fixed;right:12px;bottom:12px;z-index:9999;font:600 12px/1.2 sans-serif;padding:7px 9px;border-radius:8px;background:rgba(0,0,0,.78);color:#fff;pointer-events:none;display:none}.bw-selection-badge.visible{display:block}</style>"
+    );
+
     var grid=document.getElementById("grid");
-    if(grid)grid.addEventListener("click",handleSelectionClick,true);
+
+    if(grid){
+        grid.addEventListener("click",handleSelectionClick,true);
+    }
+
+    document.addEventListener("copy",handleNativeCopy,true);
+    document.addEventListener("paste",handleNativePaste,true);
     document.addEventListener("keydown",keyHandler,true);
-    var observer=new MutationObserver(function(){paintSelection();});
-    if(grid)observer.observe(grid,{childList:true,subtree:true});
+
+    var observer=new MutationObserver(function(){
+        paintSelection();
+    });
+
+    if(grid){
+        observer.observe(grid,{
+            childList:true,
+            subtree:true
+        });
+    }
+
     if(typeof setMode==="function"){
         var originalSetMode=setMode;
+
         setMode=function(mode){
             clearSelection();
             return originalSetMode.apply(this,arguments);
         };
     }
+
     if(typeof buildWorld==="function"){
         var originalBuildWorld=buildWorld;
+
         buildWorld=function(){
-            var previousLayer=activeLayer;
             var result=originalBuildWorld.apply(this,arguments);
-            if(previousLayer!==activeLayer)clearSelection();
-            else paintSelection();
+            paintSelection();
             return result;
         };
     }
+
     window.BinaryWorldEditor=BW_EDITOR;
 }
 
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install);
-else install();
+if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",install);
+}else{
+    install();
+}
 
 })();
