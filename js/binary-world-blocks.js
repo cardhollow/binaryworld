@@ -215,7 +215,8 @@ window.__BinaryWorldSourceParts[0] = `
 				'</div>';
 			}
 		},
-		delayer: {
+
+				delayer: {
 			id: 'F',
 			name: 'Delayer',
 			ports: {
@@ -229,45 +230,14 @@ window.__BinaryWorldSourceParts[0] = `
 
 			function: function(ctx){
 				var input = ctx.connected.in ? ctx.inputs.in : 0;
-				var runtime = ctx.runtime;
-
-				if (!runtime.delayerQueue) {
-					runtime.delayerQueue = [];
-				}
-
-				if (runtime.delayerLastInput === undefined) {
-					runtime.delayerLastInput = input;
-				}
-
-				if (runtime.delayerLastOutput === undefined) {
-					runtime.delayerLastOutput = 0;
-				}
-
-				var now = Date.now();
-
-				if (input !== runtime.delayerLastInput) {
-					runtime.delayerQueue.push({
-						time: now + 500,
-						state: input
-					});
-
-					runtime.delayerLastInput = input;
-				}
-
-				while (
-					runtime.delayerQueue.length > 0 &&
-					runtime.delayerQueue[0].time <= now
-				) {
-					runtime.delayerLastOutput = runtime.delayerQueue.shift().state;
-				}
 
 				return {
-					state: runtime.delayerLastOutput,
+					state: input,
 					outputs: {
-						out: runtime.delayerLastOutput
+						out: input
 					},
 					zOutputs: {},
-					delay: 0
+					delay: 500
 				};
 			},
 
