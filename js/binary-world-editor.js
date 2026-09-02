@@ -1,5 +1,3 @@
-window.__BinaryWorldSourceParts = window.__BinaryWorldSourceParts || [];
-window.__BinaryWorldSourceParts[7] = `
 (function(){
 	'use strict';
 
@@ -360,4 +358,3 @@ window.__BinaryWorldSourceParts[7] = `
 	// Auto-initialize on load
 	window.initKeyboardShortcuts = initKeyboardShortcuts;
 })();
-`;
