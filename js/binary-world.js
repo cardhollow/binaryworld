@@ -31,206 +31,204 @@
             'saveCurrentProject:saveCurrentProject,\n'+
             'updateBrowserProjectURL:updateBrowserProjectURL,\n'+
             'closeModal:closeModal,\n'+
-            'applyImportedWorld:applyImportedWorld\n'+
+            'applyImportedWorld:applyImportedWorld,\n'+
+            'setLocalProjectURL:setLocalProjectURL\n'+
             '};'))();
 
         window.__BW_INTERNAL=api;
 
-        function waitForBackgroundController(){
-            if(window.__BWBackground){
-                window.__BW_BACKGROUND_READY=true;
-                window.__BWBackground.install();
-                return;
-            }
-            setTimeout(waitForBackgroundController,0);
-        }
-
-        window.__BWBackground=(function(){
-            var progressModal=null;
-            var progressTitle=null;
-            var progressStage=null;
-            var progressPercent=null;
-            var progressBar=null;
-            var progressDetail=null;
-            var closeTimer=null;
+        var background=(function(){
+            var progressModal=document.getElementById('bwBackgroundProgress');
+            var progressTitle=document.getElementById('bwProgressTitle');
+            var progressStage=document.getElementById('bwProgressStage');
+            var progressPercent=document.getElementById('bwProgressPercent');
+            var progressBar=document.getElementById('bwProgressBar');
+            var progressDetail=document.getElementById('bwProgressDetail');
+            var settingsModal=document.getElementById('bwSettingsModal');
+            var settingsName=document.getElementById('bwSettingsName');
+            var settingsX=document.getElementById('bwSettingsX');
+            var settingsY=document.getElementById('bwSettingsY');
+            var settingsDelay=document.getElementById('bwSettingsDelay');
+            var createDelay=document.getElementById('createDelayerInput');
             var importBusy=false;
             var pendingSnapshot=null;
-            var installed=false;
+            var closeTimer=0;
 
-            function installStyle(){
-                if(document.getElementById('bw-background-style'))return;
-                var style=document.createElement('style');
-                style.id='bw-background-style';
-                style.textContent=''+
-                    '#bwBackgroundProgress{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.58);backdrop-filter:blur(3px);padding:18px;}' +
-                    '#bwBackgroundProgress .bwProgressBox{width:min(440px,92vw);background:#111;border:1px solid rgba(255,255,255,.18);border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.5);padding:20px;color:#fff;font:14px/1.35 system-ui,sans-serif;}' +
-                    '#bwBackgroundProgress .bwProgressTitle{font-size:18px;font-weight:700;margin-bottom:8px;letter-spacing:.02em;}' +
-                    '#bwBackgroundProgress .bwProgressStage{font-size:13px;opacity:.85;margin-bottom:14px;}' +
-                    '#bwBackgroundProgress .bwProgressTrack{height:10px;background:#2a2a2a;border-radius:999px;overflow:hidden;}' +
-                    '#bwBackgroundProgress .bwProgressBar{height:100%;width:0%;background:#fff;border-radius:999px;transition:width .12s linear;}' +
-                    '#bwBackgroundProgress .bwProgressRow{display:flex;justify-content:space-between;gap:12px;margin-top:10px;font-size:12px;opacity:.8;}' +
-                    '#bwBackgroundProgress .bwProgressDetail{margin-top:12px;font-size:12px;opacity:.72;word-break:break-word;}' +
-                    '#bwBackgroundProgress .bwProgressClose{display:none;margin-top:15px;width:100%;padding:10px;border:1px solid rgba(255,255,255,.2);border-radius:9px;background:#1a1a1a;color:#fff;}';
-                document.head.appendChild(style);
-            }
-            function ensureModal(){
-                if(progressModal)return;
-                installStyle();
-                progressModal=document.createElement('div');
-                progressModal.id='bwBackgroundProgress';
-                progressModal.innerHTML='<div class="bwProgressBox">'+
-                    '<div class="bwProgressTitle">IMPORTING WORLD</div>'+
-                    '<div class="bwProgressStage">Starting...</div>'+
-                    '<div class="bwProgressTrack"><div class="bwProgressBar"></div></div>'+
-                    '<div class="bwProgressRow"><span class="bwProgressPercent">0%</span><span>BACKGROUND WORKER</span></div>'+
-                    '<div class="bwProgressDetail"></div>'+
-                    '</div>';
-                document.body.appendChild(progressModal);
-                progressTitle=progressModal.querySelector('.bwProgressTitle');
-                progressStage=progressModal.querySelector('.bwProgressStage');
-                progressPercent=progressModal.querySelector('.bwProgressPercent');
-                progressBar=progressModal.querySelector('.bwProgressBar');
-                progressDetail=progressModal.querySelector('.bwProgressDetail');
-            }
+            function delayValue(v){v=Number(v);if(!isFinite(v))v=500;return Math.max(0,Math.min(500,Math.round(v)));}
+            function gridValue(v){v=Number(v);if(!isFinite(v))v=20;return Math.max(5,Math.min(500,Math.round(v)));}
+
             function showProgress(title,stage,percent,detail){
-                ensureModal();
-                clearTimeout(closeTimer);progressModal.style.display='flex';
+                if(!progressModal)return;
+                if(closeTimer){clearTimeout(closeTimer);closeTimer=0;}
+                progressModal.classList.add('visible');
                 progressTitle.textContent=title||'IMPORTING WORLD';
                 progressStage.textContent=stage||'';
-                percent=Math.max(0,Math.min(100,Number(percent)||0));
-                progressPercent.textContent=Math.round(percent)+'%';
-                progressBar.style.width=percent+'%';
+                var p=Math.max(0,Math.min(100,Number(percent)||0));
+                progressPercent.textContent=Math.round(p)+'%';
+                progressBar.style.width=p+'%';
                 progressDetail.textContent=detail||'';
             }
             function success(detail){
-                showProgress('IMPORT SUCCESS','World imported successfully.',100,detail||'Simulation continues in the background.');
-                clearTimeout(closeTimer);
-                closeTimer=setTimeout(function(){if(progressModal)progressModal.style.display='none';},1000);
+                showProgress('IMPORT SUCCESS','World imported successfully.',100,detail||'Ready.');
+                closeTimer=setTimeout(function(){if(progressModal)progressModal.classList.remove('visible');},900);
             }
             function failure(message){
                 showProgress('IMPORT FAILED','The world could not be imported.',0,String(message||'Unknown error'));
             }
-            function close(){if(progressModal){clearTimeout(closeTimer);progressModal.style.display='none';}}
+            function closeProgress(){if(progressModal){if(closeTimer)clearTimeout(closeTimer);progressModal.classList.remove('visible');}}
 
             async function beforeImportSnapshot(){
-                var app=api.app;
-                var key=api.currentProjectKey;
-                if(!key||app.style.display==='none')return null;
-                try{return await api.simulation.snapshot();}catch(e){
-                    try{return api.deepSnapshot();}catch(err){return null;}
-                }
+                if(!api.currentProjectKey||api.app.style.display==='none')return null;
+                try{return await api.simulation.snapshot();}
+                catch(e){try{return api.deepSnapshot();}catch(err){return null;}}
             }
 
-            function applyImportedWorldBackground(restored,snapshot){
-                var app=api.app;
-                var key=api.currentProjectKey;
-                if(!key||app.style.display==='none'){
+            function applyImported(restored,snapshot){
+                var wasEmpty=!api.currentProjectKey||api.app.style.display==='none';
+                if(wasEmpty){
                     api.currentProjectKey=api.createUniqueProjectKey();
                     api.currentProjectCreatedAt=Date.now();
                     api.clearHistory();
-                }else if(snapshot){
-                    api.pushHistory(snapshot);
-                }
+                }else if(snapshot){api.pushHistory(snapshot);}
                 api.replaceWorld(restored);
                 api.activeLayer=Math.min(api.activeLayer,Math.max(0,restored.layers.length-1));
                 try{api.closeModal(api.importModal);}catch(e){}
                 api.enterEditor();
                 api.updateHistoryButtons();
+                try{api.simulation.setDelayer(api.world.meta.delayer);}catch(e){}
                 if(api.simulation&&api.simulation.saveLocalRecord){
                     api.simulation.saveLocalRecord(api.currentProjectKey,api.currentProjectCreatedAt,api.activeLayer).then(function(json){
-                        try{localStorage.setItem(api.currentProjectKey,json);}catch(e){console.warn('Background local save failed:',e);}
-                    }).catch(function(e){console.warn('Background local save failed:',e);});
-                }else{
-                    api.saveCurrentProject();
-                }
+                        try{localStorage.setItem(api.currentProjectKey,json);}catch(e){api.saveCurrentProject();}
+                    }).catch(function(){try{api.saveCurrentProject();}catch(e){}});
+                }else{api.saveCurrentProject();}
                 try{api.updateBrowserProjectURL(restored.meta.name);}catch(e){}
             }
 
             async function startFileImport(file,format){
                 if(importBusy)return;
                 importBusy=true;
-                showProgress('IMPORTING WORLD','Reading file...',2,(file.size/1024/1024).toFixed(2)+' MB');
+                showProgress('IMPORTING WORLD','Starting background worker...',0,(file.size/1024/1024).toFixed(2)+' MB');
                 try{
                     pendingSnapshot=await beforeImportSnapshot();
+                    showProgress('IMPORTING WORLD','READING FILE',2,(file.size/1024/1024).toFixed(2)+' MB');
                     var buffer=await file.arrayBuffer();
-                    var ok=api.simulation.importBuffer(buffer,format);
-                    if(!ok)throw new Error('Background Worker is unavailable.');
-                }catch(err){
-                    importBusy=false;failure(err.message||err);return;
-                }
+                    if(!api.simulation.importBuffer(buffer,format))throw new Error('Background Worker could not be started in this browser.');
+                }catch(e){importBusy=false;pendingSnapshot=null;failure(e.message||e);}
             }
 
-            function onWorkerProgress(msg){
-                if(!importBusy)return;
-                showProgress('IMPORTING WORLD',msg.stage||'Processing...',msg.percent||0,msg.detail||'');
-            }
+            function onWorkerProgress(msg){if(!importBusy)return;showProgress('IMPORTING WORLD',msg.stage||'Processing...',msg.percent||0,msg.detail||'');}
             function onWorkerImportDone(msg){
                 if(!importBusy)return;
                 try{
-                    applyImportedWorldBackground(msg.world,pendingSnapshot);
-                    pendingSnapshot=null;
-                    importBusy=false;
-                    success((msg.world&&msg.world.meta&&msg.world.meta.name)?String(msg.world.meta.name):'Ready');
-                }catch(err){
-                    importBusy=false;pendingSnapshot=null;failure(err.message||err);
-                }
+                    applyImported(msg.world,pendingSnapshot);
+                    pendingSnapshot=null;importBusy=false;
+                    success((msg.world&&msg.world.meta&&msg.world.meta.name)||'Ready');
+                }catch(e){pendingSnapshot=null;importBusy=false;failure(e.message||e);}
             }
             function onWorkerError(msg){
                 if(!importBusy)return;
                 importBusy=false;pendingSnapshot=null;
-                failure(msg&&msg.error?msg.error:'Background Worker error');
+                failure(msg&&msg.error||'Background Worker error');
             }
 
-            function captureImportFileInputs(){
-                document.addEventListener('change',function(e){
-                    var input=e.target;
-                    if(!input||String(input.tagName||'').toLowerCase()!=='input'||String(input.type||'').toLowerCase()!=='file')return;
-                    var accept=String(input.accept||'').toLowerCase();
-                    var isBW=accept.indexOf('.bw')>=0||accept.indexOf('application/x-binary-world')>=0;
-                    var isJSON=accept.indexOf('.json')>=0||accept.indexOf('application/json')>=0;
-                    if(!isBW&&!isJSON)return;
-                    var file=input.files&&input.files[0];
-                    if(!file)return;
-                    e.stopPropagation();
-                    if(e.stopImmediatePropagation)e.stopImmediatePropagation();
-                    try{input.remove();}catch(err){}
-                    startFileImport(file,isJSON?'json':'bw');
-                },true);
-            }
-
-            function hookButtons(){
-                var bwButton=document.getElementById('importBW');
-                var jsonButton=document.getElementById('importJSON');
-                if(bwButton){bwButton.onclick=function(){try{api.closeModal(api.importModal);}catch(e){};openPicker('bw');};}
-                if(jsonButton){jsonButton.onclick=function(){try{api.closeModal(api.importModal);}catch(e){};openPicker('json');};}
-            }
             function openPicker(format){
-                var input=document.createElement('input');input.type='file';input.accept=format==='json'?'.json,application/json':'.bw';input.style.display='none';document.body.appendChild(input);
-                input.addEventListener('change',function(){var f=input.files&&input.files[0];if(!f){try{input.remove();}catch(e){}return;}startFileImport(f,format);try{input.remove();}catch(e){}},{once:true});
+                var input=document.createElement('input');
+                input.type='file';input.accept=format==='json'?'.json,application/json':'.bw';input.style.display='none';
+                document.body.appendChild(input);
+                input.addEventListener('change',function(){
+                    var f=input.files&&input.files[0];
+                    try{input.remove();}catch(e){}
+                    if(f)startFileImport(f,format);
+                },{once:true});
                 input.click();
             }
 
-            function install(){
-                if(installed)return;
-                installed=true;
-                installStyle();
-                captureImportFileInputs();
-                hookButtons();
+            function installImportButtons(){
+                var ibw=document.getElementById('importBW'),ij=document.getElementById('importJSON');
+                if(ibw)ibw.onclick=function(e){e.preventDefault();e.stopImmediatePropagation();api.closeModal(api.importModal);openPicker('bw');};
+                if(ij)ij.onclick=function(e){e.preventDefault();e.stopImmediatePropagation();api.closeModal(api.importModal);openPicker('json');};
+            }
+
+            function resizeWorld(w,nx,ny){
+                var oldW=Number(w.meta.grid[0])||20,oldH=Number(w.meta.grid[1])||20;
+                if(oldW===nx&&oldH===ny)return false;
+                for(var li=0;li<w.layers.length;li++){
+                    var src=w.layers[li].schematic||[],rows=new Array(ny);
+                    for(var y=0;y<ny;y++){
+                        var out={};
+                        if(y<oldH){
+                            var row=src[y]||{};
+                            for(var k in row){
+                                if(!Object.prototype.hasOwnProperty.call(row,k))continue;
+                                var b=row[k];if(!b)continue;
+                                var x=Number(b.x!==undefined?b.x:k);
+                                if(x>=0&&x<nx)out[x]=b;
+                            }
+                        }
+                        rows[y]=out;
+                    }
+                    w.layers[li].schematic=rows;
+                }
+                w.meta.grid=[nx,ny];
+                return true;
+            }
+
+            function openSettings(){
+                var w=api.world;
+                w.meta.delayer=delayValue(w.meta.delayer);
+                settingsName.value=w.meta.name||'Project 1';
+                settingsX.value=w.meta.grid[0];settingsY.value=w.meta.grid[1];settingsDelay.value=w.meta.delayer;
+                settingsModal.classList.add('visible');
+                setTimeout(function(){settingsName.focus();settingsName.select();},0);
+            }
+            function closeSettings(){settingsModal.classList.remove('visible');}
+            function applySettings(){
+                var w=api.world;
+                var old=api.deepSnapshot();
+                var name=String(settingsName.value||'').trim()||'Project 1';
+                var nx=gridValue(settingsX.value),ny=gridValue(settingsY.value),nd=delayValue(settingsDelay.value);
+                var resized=resizeWorld(w,nx,ny);
+                var oldName=String(w.meta.name||'Project 1');
+                var oldDelay=delayValue(w.meta.delayer);
+                var changed=resized||oldName!==name||oldDelay!==nd||Number(old.meta.grid[0])!==nx||Number(old.meta.grid[1])!==ny;
+                w.meta.name=name;w.meta.delayer=nd;
+                if(changed){
+                    api.pushHistory(old);
+                    api.buildWorld();
+                    api.simulation.setDelayer(nd);
+                    api.simulation.rebuild();
+                    api.saveCurrentProject();
+                    api.updateBrowserProjectURL(name);
+                    api.updateHistoryButtons();
+                }
+                closeSettings();
+            }
+
+            function init(){
+                if(progressModal)progressModal.classList.remove('visible');
+                var settingsButton=document.getElementById('settingsButton');
+                if(settingsButton)settingsButton.onclick=openSettings;
+                var cancel=document.getElementById('bwSettingsCancel'),apply=document.getElementById('bwSettingsApply');
+                if(cancel)cancel.onclick=closeSettings;if(apply)apply.onclick=applySettings;
+                if(settingsModal)settingsModal.addEventListener('click',function(e){if(e.target===settingsModal)closeSettings();});
+                var back=document.getElementById('bwProgressClose');if(back)back.onclick=closeProgress;
+                installImportButtons();
+                if(settingsDelay)settingsDelay.addEventListener('input',function(){settingsDelay.value=delayValue(settingsDelay.value);});
+                if(createDelay)createDelay.value='500';
+                try{api.world.meta.delayer=delayValue(api.world.meta.delayer);}catch(e){}
+                try{api.simulation.setDelayer(api.world.meta.delayer);}catch(e){}
                 window.__BW_BACKGROUND_READY=true;
             }
 
-            return {
-                install:install,
-                onWorkerProgress:onWorkerProgress,
-                onWorkerImportDone:onWorkerImportDone,
-                onWorkerError:onWorkerError,
-                showProgress:showProgress,
-                close:close,
-                openFile:function(file,format){return startFileImport(file,format);}
-            };
+            return {init:init,showProgress:showProgress,close:closeProgress,onWorkerProgress:onWorkerProgress,onWorkerImportDone:onWorkerImportDone,onWorkerError:onWorkerError,openFile:startFileImport,openSettings:openSettings,closeSettings:closeSettings};
         })();
 
-        window.__BWBackground.install();
+        window.__BWBackground=background;
+        background.init();
+        window.BinaryWorld=window.BinaryWorld||{};
+        window.BinaryWorld.openSettings=background.openSettings;
+        window.BinaryWorld.closeSettings=background.closeSettings;
+        window.BinaryWorld.backgroundImport=background.openFile;
     }
 
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startBinaryWorld,{once:true});
