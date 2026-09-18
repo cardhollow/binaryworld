@@ -23,7 +23,6 @@
             <div id="headerRight">
                 <div id="status">MODE: SELECTOR | SIMULATION: ACTIVE</div>
                 <button onclick="openGuide()" class="headerButton">Help</button>
-                <button id="settingsButton" class="headerButton">SETTINGS</button>
                 <button id="backButton" class="headerButton">BACK</button>
                 <button id="undoButton" class="headerButton">UNDO</button>
                 <button id="redoButton" class="headerButton">REDO</button>
@@ -56,9 +55,7 @@
             <div class="modalTitle">CREATE NEW</div>
             <div class="modalSubtitle">Create a new Binary World project. Grid size cannot be less than 5 by 5.</div>
             <label class="modalField"><span>NAME</span><input id="createNameInput" type="text" autocomplete="off" placeholder="Project name"></label>
-            <div class="modalGridInputs"><label class="modalField"><span>GRID X</span><input id="createGridXInput" type="number" min="5" max="500" step="1" inputmode="numeric"></label><label class="modalField"><span>GRID Y</span><input id="createGridYInput" type="number" min="5" max="500" step="1" inputmode="numeric"></label></div>
-            <label class="modalField"><span>DELAYER MS</span><input id="createDelayerInput" type="number" min="0" max="500" step="1" inputmode="numeric" value="500"></label>
-            <div class="modalSubtitle" style="margin-top:-6px">Delayer default: 500 ms · Maximum: 500 ms · 0 = no delay.</div>
+            <div class="modalGridInputs"><label class="modalField"><span>GRID X</span><input id="createGridXInput" type="number" min="5" step="1" inputmode="numeric"></label><label class="modalField"><span>GRID Y</span><input id="createGridYInput" type="number" min="5" step="1" inputmode="numeric"></label></div>
             <div class="modalActions"><button id="createNewCancel" class="modalButton">CANCEL</button><button id="createNewConfirm" class="modalButton dark">CREATE</button></div>
         </div>
     </div>
@@ -138,30 +135,6 @@
                 <button id="localProjectsAdd" class="modalButton dark">ADD</button>
                 <button id="localProjectsClose" class="modalButton">CLOSE</button>
             </div>
-        </div>
-    </div>
-
-    <div id="bwSettingsModal" class="modal">
-        <div class="modalBox">
-            <div class="modalTitle">SETTINGS</div>
-            <div class="modalSubtitle">Change the current project's name, grid size, and Delayer timing.</div>
-            <label class="modalField"><span>PROJECT NAME</span><input id="bwSettingsName" type="text" autocomplete="off"></label>
-            <div class="modalGridInputs">
-                <label class="modalField"><span>GRID X</span><input id="bwSettingsX" type="number" min="5" max="500" step="1" inputmode="numeric"></label>
-                <label class="modalField"><span>GRID Y</span><input id="bwSettingsY" type="number" min="5" max="500" step="1" inputmode="numeric"></label>
-            </div>
-            <label class="modalField"><span>DELAYER MS</span><input id="bwSettingsDelay" type="number" min="0" max="500" step="1" inputmode="numeric"></label>
-            <div class="modalSubtitle" style="margin-top:-6px">Default 500 ms · Maximum 500 ms · 0 = no delay.</div>
-            <div class="modalActions"><button id="bwSettingsCancel" class="modalButton">CANCEL</button><button id="bwSettingsApply" class="modalButton dark">APPLY</button></div>
-        </div>
-    </div>
-    <div id="bwBackgroundProgress" class="modal">
-        <div class="modalBox" style="width:min(440px,92vw)">
-            <div id="bwProgressTitle" class="modalTitle">IMPORTING WORLD</div>
-            <div id="bwProgressStage" class="modalSubtitle">Starting...</div>
-            <div style="height:10px;background:#2a2a2a;border-radius:999px;overflow:hidden;margin-top:15px"><div id="bwProgressBar" style="height:100%;width:0%;background:#fff;border-radius:999px;transition:width .12s linear"></div></div>
-            <div style="display:flex;justify-content:space-between;gap:12px;margin-top:10px;font-size:12px;opacity:.8"><span id="bwProgressPercent">0%</span><span>BACKGROUND WORKER</span></div>
-            <div id="bwProgressDetail" style="margin-top:12px;font-size:12px;opacity:.72;word-break:break-word"></div>
         </div>
     </div>
     <div id="guide">
