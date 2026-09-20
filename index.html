@@ -58,6 +58,14 @@
             <div class="storageMigrationMeta"><span id="storageMigrationCount"></span><span id="storageMigrationCurrent"></span></div>
         </div>
     </div>
+    <div id="bwProgressModal" class="modal bwProgressModal" aria-live="polite">
+        <div class="modalBox">
+            <div id="bwProgressTitle" class="modalTitle">PROCESSING</div>
+            <div id="bwProgressSubtitle" class="modalSubtitle">Working in the background.</div>
+            <div class="bwProgressBar"><div id="bwProgressFill"></div></div>
+            <div class="bwProgressMeta"><span id="bwProgressPercent">0%</span><span id="bwProgressCurrent"></span></div>
+        </div>
+    </div>
     <div id="createNewModal" class="modal">
         <div class="modalBox">
             <div class="modalTitle">CREATE NEW</div>
@@ -162,6 +170,7 @@
 	<script defer src="js/binary-world-bw.js"></script>
 	<script defer src="js/binary-world-guide.js"></script>
 	<script defer src="js/binary-world.js"></script>
+	<script defer src="js/binary-world-performance.js"></script>
 	<script defer src="js/binary-world-load.js"></script>
 	<script defer src="js/binary-world-editor.js"></script>
 </body>
