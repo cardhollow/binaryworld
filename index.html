@@ -50,6 +50,14 @@
             </main>
         </div>
     </div>
+    <div id="storageMigrationModal" class="modal storageMigrationModal">
+        <div class="modalBox">
+            <div id="storageMigrationTitle" class="modalTitle">MOVING OLD PROJECTS</div>
+            <div id="storageMigrationSubtitle" class="modalSubtitle">Moving previous Binary World saves into IndexedDB as .bw files.</div>
+            <div class="storageMigrationBar"><div id="storageMigrationFill"></div></div>
+            <div class="storageMigrationMeta"><span id="storageMigrationCount"></span><span id="storageMigrationCurrent"></span></div>
+        </div>
+    </div>
     <div id="createNewModal" class="modal">
         <div class="modalBox">
             <div class="modalTitle">CREATE NEW</div>
@@ -129,7 +137,7 @@
     <div id="localProjectsModal" class="modal">
         <div class="modalBox">
             <div class="modalTitle">LOCAL PROJECTS</div>
-            <div class="modalSubtitle">Projects are stored in browser local storage.</div>
+            <div class="modalSubtitle">Projects are stored in browser IndexedDB as .bw files.</div>
             <div id="localProjectList" class="localList"></div>
             <div class="modalActions">
                 <button id="localProjectsAdd" class="modalButton dark">ADD</button>
